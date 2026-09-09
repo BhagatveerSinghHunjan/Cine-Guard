@@ -1,0 +1,38 @@
+{
+  "name": "cineguard-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "pdfjs-dist": "4.2.67",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "reactflow": "^11.11.4"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.4.5",
+    "@testing-library/react": "14.2.1",
+    "@testing-library/user-event": "14.5.2",
+    "@types/node": "20.12.0",
+    "@types/react": "18.3.0",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "4.2.1",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.5",
+    "jsdom": "24.0.0",
+    "prettier": "3.2.5",
+    "typescript": "5.4.5",
+    "vite-tsconfig-paths": "4.3.2",
+    "vitest": "1.6.0"
+  }
+}

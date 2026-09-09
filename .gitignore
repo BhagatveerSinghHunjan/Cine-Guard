@@ -5,11 +5,16 @@ __pycache__/
 .venv/
 venv/
 .env
-.env.local
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
 
-# Node / Next.js
+# Node / Next.js / Vercel
 node_modules/
 .next/
+.vercel/
 out/
 *.log
 frontend/.env.local

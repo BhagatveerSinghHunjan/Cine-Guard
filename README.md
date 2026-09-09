@@ -25,6 +25,21 @@ plan from the mitigations you select. No chatbot, no canned answers —
 every number is computed, every citation is real, every unknown is
 labeled unknown.
 
+## Main Features
+
+- **Screenplay analysis** — scenes, characters, locations, props, brands,
+  music, stunts, VFX and dependencies extracted into structured data.
+- **Live Parallel research** — risky dependencies investigated against
+  real-world sources at runtime, with full provenance.
+- **Ranked production risks** — severity, confidence, evidence, and
+  cascading dependency links, deduplicated across scenes.
+- **Deterministic readiness score** — computed, never model-invented,
+  with before/after mitigation comparison.
+- **Revised production plan** — select fixes, get a projected score,
+  remaining blockers, and a scene-by-scene schedule view.
+- **Persistent runs** — every analysis is a retryable, inspectable run
+  with a timestamped agent activity log.
+
 ## How It Works
 
 ```
@@ -58,6 +73,15 @@ building_plan → completed | failed`):
 
 See `docs/architecture.md` (with diagram).
 
+## Google ADK Usage
+
+All five agents are defined with Google ADK (`backend/app/agents/*`,
+`google.adk.agents.Agent`, orchestrated by a `SequentialAgent` root).
+Each agent declares one responsibility plus the backend tools it may
+call (parser, research planner, risk rules, plan builder); the service
+layer executes the same tools, so behavior is identical with or without
+live model calls.
+
 ## Parallel Integration
 
 Production risk often depends on facts outside the screenplay — a permit
@@ -81,6 +105,15 @@ deterministic local heuristics (clearly labeled) instead of guessing.
 Screenplay text and web excerpts are treated as untrusted data
 (`<untrusted_*>` prompt framing; injection handling is tested).
 
+## Google Cloud Usage
+
+Vertex AI (`GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`) is a
+first-class credential path for the same Gemini models — the client is
+constructed with `vertexai=True` when no API key is set. The backend
+ships container-ready (`backend/Dockerfile`) for Google Cloud deployment.
+Note: this repository does not include Agent Engine deployment
+configuration; deploy targets are documented, not provisioned.
+
 ## Readiness Engine
 
 Asking a model for a percentage produces confident fiction. CineGuard
@@ -103,6 +136,18 @@ risks. All weights are env-configurable.
 Risks link evidence; recommendations link risks; the UI traces
 Risk → Evidence → Source → Recommendation.
 
+## Frontend / Backend Architecture
+
+- **Frontend** (`frontend/`, Next.js + TypeScript): production command
+  center — upload, dashboard (Overview / Scenes / Risks / Dependencies /
+  Research / Plan), dependency graph, fix-plan workspace. No chat UI.
+  It polls run state; all analysis lives server-side.
+- **Backend** (`backend/`, FastAPI + Python): agents, deterministic
+  engines, SQLite persistence (Postgres DDL in `migrations/` for
+  production). Structured JSON in and out; one error envelope.
+- The two tiers share versioned TypeScript/Pydantic contracts and talk
+  only over HTTP (`NEXT_PUBLIC_API_URL`).
+
 ## Demo
 
 1. Start the app (below) → click **Load Demo Production** (a fictional
@@ -116,16 +161,43 @@ Risk → Evidence → Source → Recommendation.
 
 ## Local Development
 
+### Environment variable setup
+
 ```bash
-cp .env.example .env   # keys optional; app degrades honestly without them
-
-# backend/ — FastAPI on :8000, SQLite auto-migrates on startup
-python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-
-# frontend/ — Next.js on :3000
-npm install
-npm run dev     # NEXT_PUBLIC_API_URL points at :8000
+cp backend/.env.example backend/.env   # from the repo root, then edit backend/.env
 ```
+
+> **API keys are required for live AI/research functionality.**
+> Without `GEMINI_API_KEY` the backend uses labeled local heuristics;
+> without `PARALLEL_API_KEY` research reports `not_run` with zero sources.
+> Nothing is faked either way.
+
+### How to run backend
+
+```bash
+# working directory: backend/
+python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# FastAPI on :8000, SQLite auto-migrates on startup
+```
+
+### How to run frontend
+
+```bash
+# working directory: frontend/
+npm install
+npm run dev     # Next.js on :3000, NEXT_PUBLIC_API_URL points at :8000
+```
+
+### How to configure Gemini
+
+Set `GEMINI_API_KEY` in `backend/.env` (or `GOOGLE_CLOUD_PROJECT` for
+Vertex AI). Verify with `GET /health` — `gemini` should read
+`"configured"`.
+
+### How to configure Parallel
+
+Set `PARALLEL_API_KEY` in `backend/.env`. Verify with `GET /health` —
+`parallel` should read `"configured"`.
 
 ## Environment Variables
 
@@ -156,11 +228,39 @@ scoring methodology, persistence design.
 
 ## Security
 
+**Never commit API keys.** Keep secrets in `backend/.env` (gitignored);
+commit only `*.env.example` templates with empty values.
+
 Screenplay text and research excerpts are **untrusted data** (prompt
 framing + tests). Filenames are never trusted (text-only API, 200-char
 title cap, 200k input cap with clear 422, no filesystem paths). One
 consistent error envelope, no stack traces, no secrets in logs or
 responses.
+
+## Project Structure
+
+```
+Cine-Guard/
+├── backend/               # FastAPI backend
+│   ├── app/
+│   │   ├── agents/        # Google ADK agent definitions
+│   │   ├── models/        # Pydantic schemas (API contracts)
+│   │   ├── services/      # Gemini client, research, risk, scoring, runs
+│   │   ├── tools/         # Screenplay parser, research planner, plan builder
+│   │   ├── config.py      # env-driven settings (no hardcoded secrets)
+│   │   ├── db.py          # SQLite persistence + migrations
+│   │   └── main.py        # routes + app entrypoint
+│   ├── migrations/        # Postgres DDL mirror
+│   ├── tests/             # pytest suite + fixtures
+│   ├── Dockerfile
+│   └── .env.example       # env template (empty secrets)
+├── frontend/              # Next.js command center (dashboard, graph, plan)
+├── docs/                  # architecture, runbooks, demo + submission docs
+├── vercel.json            # Vercel service routing
+├── .env.example           # root env template
+├── LICENSE                # MIT
+└── README.md
+```
 
 ## Hackathon Implementation
 
@@ -178,8 +278,9 @@ responses.
   per analysis and `ParallelResearchProvider` calls the Parallel Search
   API with retries, provenance, and honest empty/error states
   (`backend/app/tools/research_tools.py`). No key ⇒ `not_run`, zero
-  sources, never fake citations.
+  sources, never fake citations. Submitted to the **Parallel track**:
+  external research is essential to the product, not an add-on.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT © 2026 Bhagatveer Singh Hunjan — see [LICENSE](LICENSE).
